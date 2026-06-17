@@ -77,9 +77,7 @@ def main(page: ft.Page):
 
     # --- Buton ve Alt Satır Tasarımı (Düzeltilmiş Şık Metin Butonu) ---
     ekle_butonu = ft.ElevatedButton(
-        text="Ekle",
-        color="white",
-        bgcolor="blue",
+        "Ekle",
         on_click=gorev_ekle_click
     )
 
