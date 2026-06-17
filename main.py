@@ -76,7 +76,7 @@ def main(page: ft.Page):
         gorevleri_yukle()         
 
     # --- Buton ve Alt Satır Tasarımı (Düzeltilmiş Şık Metin Butonu) ---
-    ekle_butonu = ft.ElevatedButton(
+    ekle_butonu = ft.FilledButton(
         "Ekle",
         on_click=gorev_ekle_click
     )
