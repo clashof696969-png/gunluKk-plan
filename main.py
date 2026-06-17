@@ -80,7 +80,7 @@ def main(page: ft.Page):
                         ft.Text(f"• {gorev}", size=16, expand=True),
                         ft.TextButton(
                             "Sil", 
-                            icon=ft.icons.DELETE, 
+                            icon="delete",
                             icon_color="red", 
                             data={"tarih": secilen_tarih, "index": i},
                             on_click=gorevi_sil
