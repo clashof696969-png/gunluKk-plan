@@ -17,7 +17,7 @@ def main(page: ft.Page):
     
     gorevler_kutusu = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
     
-    # YENİ: Görev için tarih seçme kutusu (Otomatik bugünü gösterir)
+    # Görev için tarih seçme kutusu (Otomatik bugünü gösterir)
     gorev_tarihi_input = ft.TextField(
         value=datetime.now().strftime("%Y-%m-%d"), 
         label="Tarih", 
@@ -33,7 +33,6 @@ def main(page: ft.Page):
     # --- Fonksiyonlar ---
     def gorevleri_yukle():
         gorevler_kutusu.controls.clear()
-        # Ana ekranda her zaman SADECE bugünün görevleri gösterilir
         bugun = datetime.now().strftime("%Y-%m-%d")
         tarih_metni.value = bugun
         
@@ -53,11 +52,9 @@ def main(page: ft.Page):
         page.update()
 
     def gorev_ekle_click(e):
-        # Kutu veya tarih boşsa işlem yapma
         if not yeni_gorev_input.value or not gorev_tarihi_input.value:
             return  
             
-        # Görevi kullanıcının girdiği hedef tarihe kaydet
         hedef_tarih = gorev_tarihi_input.value
         
         try:
@@ -74,21 +71,19 @@ def main(page: ft.Page):
         with open("gorevler.json.txt", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
             
-        # İşlem bitince kutuları sıfırla
         yeni_gorev_input.value = "" 
         gorev_tarihi_input.value = datetime.now().strftime("%Y-%m-%d") 
         gorevleri_yukle()         
 
-    # --- Buton ve Alt Satır Tasarımı ---
-    ekle_butonu = ft.IconButton(
-        icon="add",
-        icon_color="blue",
-        icon_size=40,
+    # --- Buton ve Alt Satır Tasarımı (Düzeltilmiş Şık Metin Butonu) ---
+    ekle_butonu = ft.ElevatedButton(
+        text="Ekle",
+        color="white",
+        bgcolor="blue",
         on_click=gorev_ekle_click
     )
 
     ekleme_satiri = ft.Row(
-        # Tarih kutusunu da en alt satıra, yazı kutusunun yanına ekledik
         controls=[gorev_tarihi_input, yeni_gorev_input, ekle_butonu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN
     )
@@ -119,5 +114,6 @@ def main(page: ft.Page):
     saat_thread = threading.Thread(target=saati_guncelle, daemon=True)
     saat_thread.start()
 
+# Önerilen modern başlatma yöntemiyle uyarı yazısını da sıfırladık
 if __name__ == "__main__":
-    ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8080)
+    ft.app(main, assets_dir="assets")
