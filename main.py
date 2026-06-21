@@ -1,86 +1,183 @@
 import flet as ft
 from datetime import datetime, timedelta, timezone
-import json
-import time
-import threading
+import requests
+
+BIN_ID = "6a385e06da38895dfee86ba1"
+API_KEY = "$2a$10$cpHvssfY0MACNPlPaVA2cef4AzwXqq0wZeaTheUvNW8eIGnMIlbpO"
+URL = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
+HEADERS = {"X-Master-Key": API_KEY, "Content-Type": "application/json"}
+
+def veri_cek():
+    try:
+        cevap = requests.get(URL, headers=HEADERS)
+        if cevap.status_code == 200:
+            veri = cevap.json().get("record", {})
+            if "test" in veri: del veri["test"]
+            return veri
+    except: pass
+    return {}
+
+def veri_kaydet(veri):
+    try: requests.put(URL, json=veri, headers=HEADERS)
+    except: pass
 
 def main(page: ft.Page):
-    # --- Türkiye Saati Ayarı (UTC+3) ---
     TR_TZ = timezone(timedelta(hours=3))
-
-    page.title = "Günlük Planlayıcım"
+    page.title = "Kişisel Planlayıcı"
     page.theme_mode = ft.ThemeMode.DARK
-    page.scroll = None 
-
-    # --- Görsel Bileşenler ---
-    ust_baslik = ft.Text("Günlük Planlayıcım", size=28, weight="bold", color="blue")
-    tarih_metni = ft.Text("", size=16, color="grey")
-    saat_metni = ft.Text("", size=22, weight="bold", color="amber")
     
+    aktif_kullanici = [""]
+
+    def tema_degistir(e):
+        page.theme_mode = ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
+        page.update()
+        gorevleri_yukle(gorev_tarihi_input.value)
+
+    kullanici_input = ft.TextField(label="Kullanıcı Adı", width=250, text_align=ft.TextAlign.CENTER)
+    sifre_input = ft.TextField(label="Şifre", width=250, text_align=ft.TextAlign.CENTER, password=True, can_reveal_password=True)
+    uyari_metni = ft.Text("", color="red", size=14, weight="bold")
+
+    def giris_yap_click(e):
+        kadi = kullanici_input.value.strip()
+        sifre = sifre_input.value.strip()
+        
+        if not kadi or not sifre:
+            uyari_metni.value = "Kullanıcı adı ve şifre boş bırakılamaz!"
+            page.update()
+            return
+
+        data = veri_cek()
+        sifreler = data.get("_passwords", {})
+
+        if kadi in sifreler:
+            if sifreler[kadi] == sifre:
+                aktif_kullanici[0] = kadi
+                sayfayi_kur()
+            else:
+                uyari_metni.value = "Hatalı şifre girdiniz!"
+                page.update()
+        else:
+            uyari_metni.value = "Kullanıcı bulunamadı. Lütfen Kayıt Olun."
+            page.update()
+
+    def kayit_ol_click(e):
+        kadi = kullanici_input.value.strip()
+        sifre = sifre_input.value.strip()
+
+        if not kadi or not sifre:
+            uyari_metni.value = "Kullanıcı adı ve şifre boş bırakılamaz!"
+            page.update()
+            return
+
+        data = veri_cek()
+        if "_passwords" not in data:
+            data["_passwords"] = {}
+
+        sifreler = data["_passwords"]
+
+        if kadi in sifreler:
+            uyari_metni.value = "Bu kullanıcı adı zaten alınmış!"
+            page.update()
+        else:
+            data["_passwords"][kadi] = sifre
+            if kadi not in data:
+                data[kadi] = {}
+            veri_kaydet(data)
+            aktif_kullanici[0] = kadi
+            sayfayi_kur()
+
+    giris_butonlari = ft.Row([
+        ft.ElevatedButton("Giriş Yap", on_click=giris_yap_click),
+        ft.FilledButton("Kayıt Ol", on_click=kayit_ol_click)
+    ], alignment=ft.MainAxisAlignment.CENTER)
+
+    giris_ekrani = ft.Column([
+        ft.Text("Giriş / Kayıt", size=30, weight="bold"),
+        kullanici_input,
+        sifre_input,
+        uyari_metni,
+        giris_butonlari
+    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+
     gorevler_kutusu = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
     
-    # Tarih kutusundaki yazı değiştiğinde çalışacak fonksiyon
     def tarih_degisti(e):
-        # Yalnızca format tam olarak tamamlandığında (örn: 2026-06-25) çalışır
         if len(gorev_tarihi_input.value) == 10:
             gorevleri_yukle(gorev_tarihi_input.value)
 
     gorev_tarihi_input = ft.TextField(
         value=datetime.now(TR_TZ).strftime("%Y-%m-%d"), 
-        label="Tarih", 
-        width=120,
-        text_align=ft.TextAlign.CENTER,
-        on_change=tarih_degisti
+        label="Tarih", width=120, text_align=ft.TextAlign.CENTER, on_change=tarih_degisti
     )
     
-    yeni_gorev_input = ft.TextField(
-        hint_text="Görev yazın...",
-        expand=True,
+    yeni_gorev_input = ft.TextField(hint_text="Görev yazın...", expand=True)
+    
+    renk_secimi = ft.Dropdown(
+        options=[
+            ft.dropdown.Option("blue", "Normal"),
+            ft.dropdown.Option("red", "Acil"),
+            ft.dropdown.Option("green", "Rahat")
+        ],
+        value="blue", width=100
     )
 
-    # --- Fonksiyonlar ---
+    def gorevi_guncelle(tarih, index, yeni_durum):
+        data = veri_cek()
+        k = aktif_kullanici[0]
+        if k in data and tarih in data[k] and len(data[k][tarih]) > index:
+            if isinstance(data[k][tarih][index], dict):
+                data[k][tarih][index]["done"] = yeni_durum
+                veri_kaydet(data)
+        gorevleri_yukle(tarih)
+
     def gorevi_sil(e):
-        # Hangi butona basıldığını ve içindeki bilgiyi alıyoruz
         tarih = e.control.data["tarih"]
         index = e.control.data["index"]
-        
-        try:
-            with open("gorevler.json.txt", "r", encoding="utf-8") as f:
-                data = json.load(f)
-            
-            if tarih in data and len(data[tarih]) > index:
-                data[tarih].pop(index) # Görevi listeden çıkart
-                with open("gorevler.json.txt", "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-                    
-            gorevleri_yukle(tarih) # Sayfayı güncel tarihle yenile
-        except Exception:
-            pass
+        data = veri_cek()
+        k = aktif_kullanici[0]
+        if k in data and tarih in data[k] and len(data[k][tarih]) > index:
+            data[k][tarih].pop(index)
+            veri_kaydet(data)
+        gorevleri_yukle(tarih)
+
+    def checkbox_degisti(e):
+        tarih = e.control.data["tarih"]
+        index = e.control.data["index"]
+        yeni_durum = e.control.value
+        gorevi_guncelle(tarih, index, yeni_durum)
 
     def gorevleri_yukle(secilen_tarih=None):
         gorevler_kutusu.controls.clear()
-        
-        # Eğer tarih verilmemişse bugünü baz al
         if secilen_tarih is None:
             secilen_tarih = datetime.now(TR_TZ).strftime("%Y-%m-%d")
-            
-        tarih_metni.value = f"Gösterilen Tarih: {secilen_tarih}"
         
-        try:
-            with open("gorevler.json.txt", "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            data = {}
+        data = veri_cek()
+        k = aktif_kullanici[0]
+        user_data = data.get(k, {})
             
-        if secilen_tarih in data and len(data[secilen_tarih]) > 0:
-            for i, gorev in enumerate(data[secilen_tarih]):
-                # Her görev için yan yana "Yazı + Sil Butonu" oluştur
+        if secilen_tarih in user_data and len(user_data[secilen_tarih]) > 0:
+            for i, gorev in enumerate(user_data[secilen_tarih]):
+                if isinstance(gorev, str):
+                    metin = gorev
+                    durum = False
+                    renk = "blue"
+                else:
+                    metin = gorev.get("text", "")
+                    durum = gorev.get("done", False)
+                    renk = gorev.get("color", "blue")
+
                 gorev_satiri = ft.Row(
                     controls=[
-                        ft.Text(f"• {gorev}", size=16, expand=True),
-                        ft.TextButton(
-                            "Sil", 
-                            icon="delete",
+                        ft.Checkbox(
+                            label=metin, 
+                            value=durum, 
+                            label_style=ft.TextStyle(color=renk, decoration=ft.TextDecoration.LINE_THROUGH if durum else ft.TextDecoration.NONE),
+                            data={"tarih": secilen_tarih, "index": i},
+                            on_change=checkbox_degisti,
+                            expand=True
+                        ),
+                        ft.IconButton(
+                            icon="delete", 
                             icon_color="red", 
                             data={"tarih": secilen_tarih, "index": i},
                             on_click=gorevi_sil
@@ -90,69 +187,47 @@ def main(page: ft.Page):
                 )
                 gorevler_kutusu.controls.append(gorev_satiri)
         else:
-            gorevler_kutusu.controls.append(
-                ft.Text("Bu tarih için girilmiş bir görev bulunmuyor.", italic=True, color="grey")
-            )
+            gorevler_kutusu.controls.append(ft.Text("Görev bulunmuyor.", italic=True, color="grey"))
         page.update()
 
     def gorev_ekle_click(e):
-        if not yeni_gorev_input.value or not gorev_tarihi_input.value:
-            return  
-            
+        if not yeni_gorev_input.value or not gorev_tarihi_input.value: return  
         hedef_tarih = gorev_tarihi_input.value
+        ekle_butonu.disabled = True
+        page.update()
         
-        try:
-            with open("gorevler.json.txt", "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            data = {}
-            
-        if hedef_tarih not in data:
-            data[hedef_tarih] = []
-            
-        data[hedef_tarih].append(yeni_gorev_input.value)
+        data = veri_cek()
+        k = aktif_kullanici[0]
         
-        with open("gorevler.json.txt", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        if k not in data: data[k] = {}
+        if hedef_tarih not in data[k]: data[k][hedef_tarih] = []
+            
+        yeni_gorev_objesi = {"text": yeni_gorev_input.value, "done": False, "color": renk_secimi.value}
+        data[k][hedef_tarih].append(yeni_gorev_objesi)
+        veri_kaydet(data)
             
         yeni_gorev_input.value = "" 
+        ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    ekle_butonu = ft.FilledButton(
-        "Ekle",
-        on_click=gorev_ekle_click
-    )
+    ekle_butonu = ft.IconButton(icon="add_circle", icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
-        controls=[gorev_tarihi_input, yeni_gorev_input, ekle_butonu],
+        controls=[gorev_tarihi_input, renk_secimi, yeni_gorev_input, ekle_butonu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN
     )
 
-    # --- Sayfaya Yerleştirme ---
-    page.add(
-        ft.Row([ust_baslik, saat_metni], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-        tarih_metni,
-        ft.Divider(),
-        gorevler_kutusu,  
-        ft.Divider(),
-        ekleme_satiri     
-    )
+    def sayfayi_kur():
+        page.controls.clear()
+        page.appbar = ft.AppBar(
+            title=ft.Text(f"Ajanda ({aktif_kullanici[0]})"),
+            bgcolor="blue900",
+            actions=[ft.IconButton(icon="dark_mode", on_click=tema_degistir)]
+        )
+        page.add(gorevler_kutusu, ft.Divider(), ekleme_satiri)
+        gorevleri_yukle()
 
-    gorevleri_yukle()
-
-    # --- Arka Planda Saati Güncelleyen Fonksiyon ---
-    def saati_guncelle():
-        while True:
-            su_an = datetime.now(TR_TZ).strftime("%H:%M:%S")
-            saat_metni.value = su_an
-            try:
-                page.update()
-            except:
-                pass
-            time.sleep(1)
-
-    saat_thread = threading.Thread(target=saati_guncelle, daemon=True)
-    saat_thread.start()
+    page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
 
 if __name__ == "__main__":
     ft.app(main, assets_dir="assets")
