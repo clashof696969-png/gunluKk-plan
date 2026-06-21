@@ -31,7 +31,7 @@ def main(page: ft.Page):
     def tema_degistir(e):
         page.theme_mode = ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         page.update()
-        gorevleri_yukle(gorev_tarihi_input.value)
+        gorevleri_yukle()
 
     kullanici_input = ft.TextField(label="Kullanıcı Adı", width=250, text_align=ft.TextAlign.CENTER)
     sifre_input = ft.TextField(label="Şifre", width=250, text_align=ft.TextAlign.CENTER, password=True, can_reveal_password=True)
@@ -73,9 +73,7 @@ def main(page: ft.Page):
         if "_passwords" not in data:
             data["_passwords"] = {}
 
-        sifreler = data["_passwords"]
-
-        if kadi in sifreler:
+        if kadi in data["_passwords"]:
             uyari_metni.value = "Bu kullanıcı adı zaten alınmış!"
             page.update()
         else:
@@ -87,7 +85,7 @@ def main(page: ft.Page):
             sayfayi_kur()
 
     giris_butonlari = ft.Row([
-        ft.ElevatedButton("Giriş Yap", on_click=giris_yap_click),
+        ft.FilledTonalButton("Giriş Yap", on_click=giris_yap_click),
         ft.FilledButton("Kayıt Ol", on_click=kayit_ol_click)
     ], alignment=ft.MainAxisAlignment.CENTER)
 
@@ -101,14 +99,34 @@ def main(page: ft.Page):
 
     gorevler_kutusu = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
     
-    def tarih_degisti(e):
-        if len(gorev_tarihi_input.value) == 10:
-            gorevleri_yukle(gorev_tarihi_input.value)
+    # --- TAKVİM (DATE PICKER) KISMI ---
+    def tarih_secildi(e):
+        if takvim.value:
+            secilen_tarih = takvim.value.strftime("%Y-%m-%d")
+            gorev_tarihi_input.value = secilen_tarih
+            gorevleri_yukle(secilen_tarih)
+            page.update()
+
+    takvim = ft.DatePicker(
+        first_date=datetime(2023, 1, 1),
+        last_date=datetime(2035, 12, 31),
+        on_change=tarih_secildi
+    )
+    page.overlay.append(takvim)
 
     gorev_tarihi_input = ft.TextField(
         value=datetime.now(TR_TZ).strftime("%Y-%m-%d"), 
-        label="Tarih", width=120, text_align=ft.TextAlign.CENTER, on_change=tarih_degisti
+        label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
     )
+    
+    takvim_butonu = ft.IconButton(
+        icon=ft.icons.CALENDAR_MONTH,
+        icon_color="blue",
+        tooltip="Takvimden Seç",
+        on_click=lambda _: takvim.pick_date()
+    )
+
+    tarih_alani = ft.Row([gorev_tarihi_input, takvim_butonu], spacing=0)
     
     yeni_gorev_input = ft.TextField(hint_text="Görev yazın...", expand=True)
     
@@ -149,7 +167,7 @@ def main(page: ft.Page):
     def gorevleri_yukle(secilen_tarih=None):
         gorevler_kutusu.controls.clear()
         if secilen_tarih is None:
-            secilen_tarih = datetime.now(TR_TZ).strftime("%Y-%m-%d")
+            secilen_tarih = gorev_tarihi_input.value
         
         data = veri_cek()
         k = aktif_kullanici[0]
@@ -177,7 +195,7 @@ def main(page: ft.Page):
                             expand=True
                         ),
                         ft.IconButton(
-                            icon="delete", 
+                            icon=ft.icons.DELETE, 
                             icon_color="red", 
                             data={"tarih": secilen_tarih, "index": i},
                             on_click=gorevi_sil
@@ -210,10 +228,10 @@ def main(page: ft.Page):
         ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    ekle_butonu = ft.IconButton(icon="add_circle", icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
+    ekle_butonu = ft.IconButton(icon=ft.icons.ADD_CIRCLE, icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
-        controls=[gorev_tarihi_input, renk_secimi, yeni_gorev_input, ekle_butonu],
+        controls=[tarih_alani, renk_secimi, yeni_gorev_input, ekle_butonu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN
     )
 
@@ -222,9 +240,13 @@ def main(page: ft.Page):
         page.appbar = ft.AppBar(
             title=ft.Text(f"Ajanda ({aktif_kullanici[0]})"),
             bgcolor="blue900",
-            actions=[ft.IconButton(icon="dark_mode", on_click=tema_degistir)]
+            actions=[ft.IconButton(icon=ft.icons.DARK_MODE, on_click=tema_degistir)]
         )
-        page.add(gorevler_kutusu, ft.Divider(), ekleme_satiri)
+        page.add(
+            gorevler_kutusu, 
+            ft.Divider(), 
+            ekleme_satiri
+        )
         gorevleri_yukle()
 
     page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
