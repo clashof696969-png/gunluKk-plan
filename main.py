@@ -31,11 +31,24 @@ def main(page: ft.Page):
     def tema_degistir(e):
         page.theme_mode = ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         page.update()
-        gorevleri_yukle()
+        if aktif_kullanici[0]:
+            gorevleri_yukle()
 
     kullanici_input = ft.TextField(label="Kullanıcı Adı", width=250, text_align=ft.TextAlign.CENTER)
     sifre_input = ft.TextField(label="Şifre", width=250, text_align=ft.TextAlign.CENTER, password=True, can_reveal_password=True)
+    beni_hatirla = ft.Checkbox(label="Beni Hatırla (Hızlı Giriş)", value=True)
     uyari_metni = ft.Text("", color="red", size=14, weight="bold")
+
+    def giris_basarili(kadi, sifre):
+        aktif_kullanici[0] = kadi
+        if beni_hatirla.value:
+            # Kullanıcıyı cihazın hafızasına kaydet
+            page.client_storage.set("kadi", kadi)
+            page.client_storage.set("sifre", sifre)
+        else:
+            page.client_storage.remove("kadi")
+            page.client_storage.remove("sifre")
+        sayfayi_kur()
 
     def giris_yap_click(e):
         kadi = kullanici_input.value.strip()
@@ -51,8 +64,7 @@ def main(page: ft.Page):
 
         if kadi in sifreler:
             if sifreler[kadi] == sifre:
-                aktif_kullanici[0] = kadi
-                sayfayi_kur()
+                giris_basarili(kadi, sifre)
             else:
                 uyari_metni.value = "Hatalı şifre girdiniz!"
                 page.update()
@@ -81,8 +93,7 @@ def main(page: ft.Page):
             if kadi not in data:
                 data[kadi] = {}
             veri_kaydet(data)
-            aktif_kullanici[0] = kadi
-            sayfayi_kur()
+            giris_basarili(kadi, sifre)
 
     giris_butonlari = ft.Row([
         ft.FilledTonalButton("Giriş Yap", on_click=giris_yap_click),
@@ -93,6 +104,7 @@ def main(page: ft.Page):
         ft.Text("Giriş / Kayıt", size=30, weight="bold"),
         kullanici_input,
         sifre_input,
+        beni_hatirla,
         uyari_metni,
         giris_butonlari
     ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
@@ -118,14 +130,14 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
     )
     
-    takvim_butonu = ft.IconButton(
-        icon=ft.icons.EVENT, 
-        icon_color="blue",
+    # Hata vermesi %0 olan EMOJİ takvim butonu!
+    takvim_butonu = ft.FilledTonalButton(
+        text="📅", 
         tooltip="Takvimden Seç",
         on_click=lambda _: takvim.pick_date()
     )
 
-    tarih_alani = ft.Row([gorev_tarihi_input, takvim_butonu], spacing=0)
+    tarih_alani = ft.Row([gorev_tarihi_input, takvim_butonu], spacing=5)
     
     yeni_gorev_input = ft.TextField(hint_text="Görev yazın...", expand=True)
     
@@ -227,19 +239,30 @@ def main(page: ft.Page):
         ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    ekle_butonu = ft.IconButton(icon=ft.icons.ADD_CIRCLE, icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
+    ekle_butonu = ft.IconButton(icon=ft.icons.ADD, icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
         controls=[tarih_alani, renk_secimi, yeni_gorev_input, ekle_butonu],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN
     )
 
+    def cikis_yap(e):
+        page.client_storage.remove("kadi")
+        page.client_storage.remove("sifre")
+        aktif_kullanici[0] = ""
+        page.controls.clear()
+        page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
+        page.update()
+
     def sayfayi_kur():
         page.controls.clear()
         page.appbar = ft.AppBar(
             title=ft.Text(f"Ajanda ({aktif_kullanici[0]})"),
             bgcolor="blue900",
-            actions=[ft.IconButton(icon=ft.icons.DARK_MODE, on_click=tema_degistir)]
+            actions=[
+                ft.TextButton("🌙", on_click=tema_degistir, tooltip="Tema Değiştir"),
+                ft.TextButton("🚪", on_click=cikis_yap, tooltip="Çıkış Yap")
+            ]
         )
         page.add(
             gorevler_kutusu, 
@@ -248,6 +271,20 @@ def main(page: ft.Page):
         )
         gorevleri_yukle()
 
+    # --- UYGULAMA AÇILDIĞINDA OTOMATİK GİRİŞ KONTROLÜ ---
+    kayitli_kadi = page.client_storage.get("kadi")
+    kayitli_sifre = page.client_storage.get("sifre")
+    
+    if kayitli_kadi and kayitli_sifre:
+        data = veri_cek()
+        sifreler = data.get("_passwords", {})
+        # Eğer hafızadaki şifre veri tabanıyla uyuşuyorsa direkt giriş yap!
+        if kayitli_kadi in sifreler and sifreler[kayitli_kadi] == kayitli_sifre:
+            aktif_kullanici[0] = kayitli_kadi
+            sayfayi_kur()
+            return
+
+    # Şifre yoksa veya uyuşmuyorsa normal giriş ekranını göster
     page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
 
 if __name__ == "__main__":
