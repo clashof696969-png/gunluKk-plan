@@ -29,7 +29,6 @@ def main(page: ft.Page):
     aktif_kullanici = [""]
 
     # --- HATA ÖNLEYİCİ ZIRHLI HAFIZA FONKSİYONLARI ---
-    # Eski sürüm sunucularda çökmeyi %100 engeller.
     def hafizaya_yaz(anahtar, deger):
         try:
             if hasattr(page, "client_storage"):
@@ -144,7 +143,6 @@ def main(page: ft.Page):
             gorevleri_yukle(secilen_tarih)
             page.update()
 
-    # Takvim Çökme İhtimaline Karşı Koruma Zırhı
     takvim = None
     try:
         takvim = ft.DatePicker(
@@ -160,8 +158,18 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=(takvim is not None)
     )
     
+    # --- TAKVİM AÇMA DÜZELTMESİ (ANTİKA SÜRÜM KORUMASI) ---
     def takvim_ac(e):
-        if takvim: takvim.pick_date()
+        if takvim:
+            try:
+                # Yeni sürüm dener
+                takvim.pick_date()
+            except:
+                try:
+                    # Eski sürümler için "Açıl susam açıl" yöntemi
+                    takvim.open = True
+                    page.update()
+                except: pass
 
     takvim_butonu = ft.TextButton(
         "📅", 
