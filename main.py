@@ -95,9 +95,10 @@ def main(page: ft.Page):
             veri_kaydet(data)
             giris_basarili(kadi, sifre)
 
+    # Butonları en klasik ve güvenilir tipe çevirdik!
     giris_butonlari = ft.Row([
-        ft.FilledTonalButton("Giriş Yap", on_click=giris_yap_click),
-        ft.FilledButton("Kayıt Ol", on_click=kayit_ol_click)
+        ft.ElevatedButton("Giriş Yap", on_click=giris_yap_click),
+        ft.ElevatedButton("Kayıt Ol", on_click=kayit_ol_click)
     ], alignment=ft.MainAxisAlignment.CENTER)
 
     giris_ekrani = ft.Column([
@@ -130,9 +131,9 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
     )
     
-    # Hata vermesi %0 olan EMOJİ takvim butonu!
-    takvim_butonu = ft.FilledTonalButton(
-        text="📅", 
+    # Hata vermesi İMKANSIZ olan TextButton yapısı
+    takvim_butonu = ft.TextButton(
+        "📅", 
         tooltip="Takvimden Seç",
         on_click=lambda _: takvim.pick_date()
     )
