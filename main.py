@@ -118,9 +118,8 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
     )
     
-    # İkon ismini doğrudan metin olarak verdik!
     takvim_butonu = ft.IconButton(
-        icon="calendar_month", 
+        icon=ft.icons.EVENT, 
         icon_color="blue",
         tooltip="Takvimden Seç",
         on_click=lambda _: takvim.pick_date()
@@ -195,7 +194,7 @@ def main(page: ft.Page):
                             expand=True
                         ),
                         ft.IconButton(
-                            icon="delete", 
+                            icon=ft.icons.DELETE, 
                             icon_color="red", 
                             data={"tarih": secilen_tarih, "index": i},
                             on_click=gorevi_sil
@@ -228,7 +227,7 @@ def main(page: ft.Page):
         ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    ekle_butonu = ft.IconButton(icon="add_circle", icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
+    ekle_butonu = ft.IconButton(icon=ft.icons.ADD_CIRCLE, icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
         controls=[tarih_alani, renk_secimi, yeni_gorev_input, ekle_butonu],
@@ -240,7 +239,7 @@ def main(page: ft.Page):
         page.appbar = ft.AppBar(
             title=ft.Text(f"Ajanda ({aktif_kullanici[0]})"),
             bgcolor="blue900",
-            actions=[ft.IconButton(icon="dark_mode", on_click=tema_degistir)]
+            actions=[ft.IconButton(icon=ft.icons.DARK_MODE, on_click=tema_degistir)]
         )
         page.add(
             gorevler_kutusu, 
