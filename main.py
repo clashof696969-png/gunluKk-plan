@@ -99,7 +99,6 @@ def main(page: ft.Page):
 
     gorevler_kutusu = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
     
-    # --- TAKVİM (DATE PICKER) KISMI ---
     def tarih_secildi(e):
         if takvim.value:
             secilen_tarih = takvim.value.strftime("%Y-%m-%d")
@@ -120,7 +119,7 @@ def main(page: ft.Page):
     )
     
     takvim_butonu = ft.IconButton(
-        icon=ft.icons.CALENDAR_MONTH,
+        icon=ft.icons.CALENDAR_TODAY, 
         icon_color="blue",
         tooltip="Takvimden Seç",
         on_click=lambda _: takvim.pick_date()
