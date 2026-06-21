@@ -95,7 +95,6 @@ def main(page: ft.Page):
             veri_kaydet(data)
             giris_basarili(kadi, sifre)
 
-    # Butonları en klasik ve güvenilir tipe çevirdik!
     giris_butonlari = ft.Row([
         ft.ElevatedButton("Giriş Yap", on_click=giris_yap_click),
         ft.ElevatedButton("Kayıt Ol", on_click=kayit_ol_click)
@@ -131,7 +130,6 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
     )
     
-    # Hata vermesi İMKANSIZ olan TextButton yapısı
     takvim_butonu = ft.TextButton(
         "📅", 
         tooltip="Takvimden Seç",
@@ -206,9 +204,9 @@ def main(page: ft.Page):
                             on_change=checkbox_degisti,
                             expand=True
                         ),
-                        ft.IconButton(
-                            icon=ft.icons.DELETE, 
-                            icon_color="red", 
+                        # SİL İKONU YERİNE METİN VE EMOJİ!
+                        ft.TextButton(
+                            "❌ Sil", 
                             data={"tarih": secilen_tarih, "index": i},
                             on_click=gorevi_sil
                         )
@@ -240,7 +238,8 @@ def main(page: ft.Page):
         ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    ekle_butonu = ft.IconButton(icon=ft.icons.ADD, icon_color="blue", icon_size=40, on_click=gorev_ekle_click)
+    # EKLE İKONU YERİNE METİN VE EMOJİ!
+    ekle_butonu = ft.ElevatedButton("➕ Ekle", on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
         controls=[tarih_alani, renk_secimi, yeni_gorev_input, ekle_butonu],
@@ -285,7 +284,7 @@ def main(page: ft.Page):
             sayfayi_kur()
             return
 
-    # Şifre yoksa veya uyuşmuyorsa normal giriş ekranını göster
+    # Şifre yoksa normal giriş ekranı
     page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
 
 if __name__ == "__main__":
