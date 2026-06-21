@@ -28,6 +28,33 @@ def main(page: ft.Page):
     
     aktif_kullanici = [""]
 
+    # --- HATA ÖNLEYİCİ ZIRHLI HAFIZA FONKSİYONLARI ---
+    # Eski sürüm sunucularda çökmeyi %100 engeller.
+    def hafizaya_yaz(anahtar, deger):
+        try:
+            if hasattr(page, "client_storage"):
+                page.client_storage.set(anahtar, deger)
+            elif hasattr(page, "session"):
+                page.session.set(anahtar, deger)
+        except: pass
+
+    def hafizadan_oku(anahtar):
+        try:
+            if hasattr(page, "client_storage"):
+                return page.client_storage.get(anahtar)
+            elif hasattr(page, "session"):
+                return page.session.get(anahtar)
+        except: pass
+        return None
+
+    def hafizadan_sil(anahtar):
+        try:
+            if hasattr(page, "client_storage"):
+                page.client_storage.remove(anahtar)
+            elif hasattr(page, "session"):
+                page.session.remove(anahtar)
+        except: pass
+
     def tema_degistir(e):
         page.theme_mode = ft.ThemeMode.LIGHT if page.theme_mode == ft.ThemeMode.DARK else ft.ThemeMode.DARK
         page.update()
@@ -36,18 +63,17 @@ def main(page: ft.Page):
 
     kullanici_input = ft.TextField(label="Kullanıcı Adı", width=250, text_align=ft.TextAlign.CENTER)
     sifre_input = ft.TextField(label="Şifre", width=250, text_align=ft.TextAlign.CENTER, password=True, can_reveal_password=True)
-    beni_hatirla = ft.Checkbox(label="Beni Hatırla (Hızlı Giriş)", value=True)
+    beni_hatirla = ft.Checkbox(label="Beni Hatırla", value=True)
     uyari_metni = ft.Text("", color="red", size=14, weight="bold")
 
     def giris_basarili(kadi, sifre):
         aktif_kullanici[0] = kadi
         if beni_hatirla.value:
-            # Kullanıcıyı cihazın hafızasına kaydet
-            page.client_storage.set("kadi", kadi)
-            page.client_storage.set("sifre", sifre)
+            hafizaya_yaz("kadi", kadi)
+            hafizaya_yaz("sifre", sifre)
         else:
-            page.client_storage.remove("kadi")
-            page.client_storage.remove("sifre")
+            hafizadan_sil("kadi")
+            hafizadan_sil("sifre")
         sayfayi_kur()
 
     def giris_yap_click(e):
@@ -112,28 +138,36 @@ def main(page: ft.Page):
     gorevler_kutusu = ft.Column(expand=True, scroll=ft.ScrollMode.AUTO)
     
     def tarih_secildi(e):
-        if takvim.value:
+        if takvim and takvim.value:
             secilen_tarih = takvim.value.strftime("%Y-%m-%d")
             gorev_tarihi_input.value = secilen_tarih
             gorevleri_yukle(secilen_tarih)
             page.update()
 
-    takvim = ft.DatePicker(
-        first_date=datetime(2023, 1, 1),
-        last_date=datetime(2035, 12, 31),
-        on_change=tarih_secildi
-    )
-    page.overlay.append(takvim)
+    # Takvim Çökme İhtimaline Karşı Koruma Zırhı
+    takvim = None
+    try:
+        takvim = ft.DatePicker(
+            first_date=datetime(2023, 1, 1),
+            last_date=datetime(2035, 12, 31),
+            on_change=tarih_secildi
+        )
+        page.overlay.append(takvim)
+    except: pass
 
     gorev_tarihi_input = ft.TextField(
         value=datetime.now(TR_TZ).strftime("%Y-%m-%d"), 
-        label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=True
+        label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=(takvim is not None)
     )
     
+    def takvim_ac(e):
+        if takvim: takvim.pick_date()
+
     takvim_butonu = ft.TextButton(
         "📅", 
         tooltip="Takvimden Seç",
-        on_click=lambda _: takvim.pick_date()
+        on_click=takvim_ac,
+        disabled=(takvim is None)
     )
 
     tarih_alani = ft.Row([gorev_tarihi_input, takvim_butonu], spacing=5)
@@ -159,20 +193,24 @@ def main(page: ft.Page):
         gorevleri_yukle(tarih)
 
     def gorevi_sil(e):
-        tarih = e.control.data["tarih"]
-        index = e.control.data["index"]
-        data = veri_cek()
-        k = aktif_kullanici[0]
-        if k in data and tarih in data[k] and len(data[k][tarih]) > index:
-            data[k][tarih].pop(index)
-            veri_kaydet(data)
-        gorevleri_yukle(tarih)
+        try:
+            tarih = e.control.data["tarih"]
+            index = e.control.data["index"]
+            data = veri_cek()
+            k = aktif_kullanici[0]
+            if k in data and tarih in data[k] and len(data[k][tarih]) > index:
+                data[k][tarih].pop(index)
+                veri_kaydet(data)
+            gorevleri_yukle(tarih)
+        except: pass
 
     def checkbox_degisti(e):
-        tarih = e.control.data["tarih"]
-        index = e.control.data["index"]
-        yeni_durum = e.control.value
-        gorevi_guncelle(tarih, index, yeni_durum)
+        try:
+            tarih = e.control.data["tarih"]
+            index = e.control.data["index"]
+            yeni_durum = e.control.value
+            gorevi_guncelle(tarih, index, yeni_durum)
+        except: pass
 
     def gorevleri_yukle(secilen_tarih=None):
         gorevler_kutusu.controls.clear()
@@ -194,17 +232,19 @@ def main(page: ft.Page):
                     durum = gorev.get("done", False)
                     renk = gorev.get("color", "blue")
 
+                try: style = ft.TextStyle(color=renk, decoration=ft.TextDecoration.LINE_THROUGH if durum else ft.TextDecoration.NONE)
+                except: style = None
+
                 gorev_satiri = ft.Row(
                     controls=[
                         ft.Checkbox(
                             label=metin, 
                             value=durum, 
-                            label_style=ft.TextStyle(color=renk, decoration=ft.TextDecoration.LINE_THROUGH if durum else ft.TextDecoration.NONE),
+                            label_style=style,
                             data={"tarih": secilen_tarih, "index": i},
                             on_change=checkbox_degisti,
                             expand=True
                         ),
-                        # SİL İKONU YERİNE METİN VE EMOJİ!
                         ft.TextButton(
                             "❌ Sil", 
                             data={"tarih": secilen_tarih, "index": i},
@@ -238,7 +278,6 @@ def main(page: ft.Page):
         ekle_butonu.disabled = False
         gorevleri_yukle(hedef_tarih)         
 
-    # EKLE İKONU YERİNE METİN VE EMOJİ!
     ekle_butonu = ft.ElevatedButton("➕ Ekle", on_click=gorev_ekle_click)
 
     ekleme_satiri = ft.Row(
@@ -247,8 +286,8 @@ def main(page: ft.Page):
     )
 
     def cikis_yap(e):
-        page.client_storage.remove("kadi")
-        page.client_storage.remove("sifre")
+        hafizadan_sil("kadi")
+        hafizadan_sil("sifre")
         aktif_kullanici[0] = ""
         page.controls.clear()
         page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
@@ -272,19 +311,17 @@ def main(page: ft.Page):
         gorevleri_yukle()
 
     # --- UYGULAMA AÇILDIĞINDA OTOMATİK GİRİŞ KONTROLÜ ---
-    kayitli_kadi = page.client_storage.get("kadi")
-    kayitli_sifre = page.client_storage.get("sifre")
+    kayitli_kadi = hafizadan_oku("kadi")
+    kayitli_sifre = hafizadan_oku("sifre")
     
     if kayitli_kadi and kayitli_sifre:
         data = veri_cek()
         sifreler = data.get("_passwords", {})
-        # Eğer hafızadaki şifre veri tabanıyla uyuşuyorsa direkt giriş yap!
         if kayitli_kadi in sifreler and sifreler[kayitli_kadi] == kayitli_sifre:
             aktif_kullanici[0] = kayitli_kadi
             sayfayi_kur()
             return
 
-    # Şifre yoksa normal giriş ekranı
     page.add(ft.Row([giris_ekrani], alignment=ft.MainAxisAlignment.CENTER))
 
 if __name__ == "__main__":
