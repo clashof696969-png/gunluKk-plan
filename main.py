@@ -158,15 +158,12 @@ def main(page: ft.Page):
         label="Tarih", width=120, text_align=ft.TextAlign.CENTER, read_only=(takvim is not None)
     )
     
-    # --- TAKVİM AÇMA DÜZELTMESİ (ANTİKA SÜRÜM KORUMASI) ---
     def takvim_ac(e):
         if takvim:
             try:
-                # Yeni sürüm dener
                 takvim.pick_date()
             except:
                 try:
-                    # Eski sürümler için "Açıl susam açıl" yöntemi
                     takvim.open = True
                     page.update()
                 except: pass
@@ -288,9 +285,20 @@ def main(page: ft.Page):
 
     ekle_butonu = ft.ElevatedButton("➕ Ekle", on_click=gorev_ekle_click)
 
-    ekleme_satiri = ft.Row(
-        controls=[tarih_alani, renk_secimi, yeni_gorev_input, ekle_butonu],
+    # --- MOBİL UYUMLU TASARIM: 2 SATIRA BÖLDÜK ---
+    ust_satir = ft.Row(
+        controls=[tarih_alani, renk_secimi],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+    )
+    
+    alt_satir = ft.Row(
+        controls=[yeni_gorev_input, ekle_butonu],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+    )
+
+    ekleme_satiri = ft.Column(
+        controls=[ust_satir, alt_satir],
+        spacing=10
     )
 
     def cikis_yap(e):
